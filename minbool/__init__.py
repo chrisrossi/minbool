@@ -124,6 +124,8 @@ def simplify(f, *names):
     pprint.pprint(solution)
     print
 
+    return BooleanExpression(names, solution)
+
 
 def range_minterms(N):
     for i in xrange(2**N):
@@ -163,6 +165,45 @@ def covers(implicant, minterm):
     return True
 
 
+class BooleanExpression(object):
+
+    def __init__(self, names, solution):
+        self.names = names
+        self.solution = solution
+
+    def __str__(self):
+        names = self.names
+        terms = []
+        for implicant in self.solution:
+            term = []
+            for name, truth in zip(names, implicant):
+                if truth is None:
+                    continue
+                elif truth:
+                    term.append(name)
+                else:
+                    term.append('not(%s)' % name)
+            terms.append('(%s)' % ' and '.join(term))
+        return ' or '.join(terms)
+
+    def __call__(self, *args):
+        if len(args) != len(self.names):
+            raise ValueError("Wrong number of arguments")
+
+        for implicant in self.solution:
+            for arg, truth in zip(args, implicant):
+                if truth is None:
+                    continue
+                elif bool(arg) != truth:
+                    break
+            else:
+                # This term is true so expression is true
+                return True
+
+        # No true terms found
+        return False
+
+
 if __name__ == '__main__':
     truths = (4, 5, 6, 8, 9, 10, 13)
     dontcare = (0, 7, 15)
@@ -177,4 +218,13 @@ if __name__ == '__main__':
         else:
             return proposition in truths
 
-    simplify(f, 'A', 'B', 'C', 'D')
+    solution = simplify(f, 'A', 'B', 'C', 'D')
+    print str(solution)
+
+    for i in xrange(16):
+        if i in dontcare:
+            continue
+        args = make_implicant(i, 4)
+        assert solution(*args) == f(*args)
+
+
