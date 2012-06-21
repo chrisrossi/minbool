@@ -10,21 +10,21 @@ def simplify(f, *names):
 
     # Construct truth table
     truthtable = {}
-    for implicant in range_implicants(N):
-        truthtable[implicant] = f(*implicant)
+    for minterm in range_minterms(N):
+        truthtable[minterm] = f(*minterm)
 
     # Find prime implicants
     prime_implicants = set()
 
     # Construct the first column
     column = [[] for _ in xrange(N+1)]
-    for implicant, truth in truthtable.items():
+    for minterm, truth in truthtable.items():
         if truth in (True, None):  # include don't cares
             group = 0
-            for member in implicant:
+            for member in minterm:
                 if member:
                     group += 1
-            column[group].append(implicant)
+            column[group].append(minterm)
 
     # Iteratively find matches/prime implicants in successive columns
     done = False
@@ -64,8 +64,68 @@ def simplify(f, *names):
     pprint.pprint(sorted(prime_implicants))
     print
 
+    # construct coverage chart
+    minterm_coverage = {}
+    implicant_coverage = dict(
+        [(implicant, set()) for implicant in prime_implicants])
+    uncovered_minterms = set()
+    for minterm, truth in truthtable.items():
+        if not truth:
+            continue # Don't care about coverage for don't cares
+        uncovered_minterms.add(minterm)
+        minterm_coverage[minterm] = covering_implicants = []
+        for implicant in prime_implicants:
+            if covers(implicant, minterm):
+                covering_implicants.append(implicant)
+                implicant_coverage[implicant].add(minterm)
 
-def range_implicants(N):
+    # find essential implicants
+    cand_implicants = set(prime_implicants)
+    solution = []
+    for minterm, covering_implicants in minterm_coverage.items():
+        if len(covering_implicants) == 1:
+            # covering implicant is essential
+            implicant = covering_implicants[0]
+            solution.append(implicant)
+            cand_implicants.remove(implicant)
+            covered_minterms = implicant_coverage[implicant]
+            uncovered_minterms -= covered_minterms
+
+    print "Essential implicants"
+    pprint.pprint(solution)
+    print
+
+    print "Uncovered minterms"
+    pprint.pprint(uncovered_minterms)
+    print
+
+    # Add enough non-essential implicants to cover the remaining uncovered
+    # minterms
+    while uncovered_minterms:
+        max_covered = 0
+        leading_implicant = None
+        for implicant in cand_implicants:
+            covered_minterms = implicant_coverage[implicant]
+            covered = 0
+            for minterm in covered_minterms:
+                if minterm in uncovered_minterms:
+                    covered += 1
+
+            if covered > max_covered:
+                max_covered = covered
+                leading_implicant = implicant
+
+        solution.append(leading_implicant)
+        cand_implicants.remove(leading_implicant)
+        covered_minterms = implicant_coverage[leading_implicant]
+        uncovered_minterms -= covered_minterms
+
+    print "Final solution"
+    pprint.pprint(solution)
+    print
+
+
+def range_minterms(N):
     for i in xrange(2**N):
         yield make_implicant(i, N)
 
@@ -92,6 +152,15 @@ def adjacent(imp1, imp2):
             match.append(None)
 
     return match
+
+
+def covers(implicant, minterm):
+    for i, m in zip(implicant, minterm):
+        if i is None:
+            continue
+        if i != m:
+            return False
+    return True
 
 
 if __name__ == '__main__':
