@@ -3,6 +3,9 @@
 # expressions.
 #
 import ast
+import codegen
+import functools
+import sys
 
 def synthesize(f, *names):
     """
@@ -180,6 +183,7 @@ class BooleanExpression(object):
         for implicant in self.solution:
             term = []
             for name, truth in zip(names, implicant):
+                name = str(name)
                 if truth is None:
                     continue
                 elif truth:
@@ -194,6 +198,44 @@ class BooleanExpression(object):
             terms.append('(%s)' % ' and '.join(term))
 
         return ' or '.join(terms)
+
+    def ast(self):
+        solution = self.solution
+
+        # Special case--empty solution, always False
+        if not solution:
+            return ast.Name('False', ast.Load())
+
+        propositions = self.names
+        terms = []
+        for implicant in self.solution:
+            term = []
+            for proposition, truth in zip(propositions, implicant):
+                if truth is None:
+                    continue
+                elif truth:
+                    term.append(proposition)
+                else:
+                    term.append(ast.UnaryOp(ast.Not, proposition))
+
+            # Special case--term is all don't cares, always True
+            if not term:
+                return ast.Name('True', ast.Load())
+
+            terms.append(ast.BoolOp(ast.And(), term))
+
+        expr = ast.BoolOp(ast.Or(), terms)
+
+        def simplify(node):
+            if isinstance(node, ast.BoolOp):
+                node.values = [simplify(value) for value in node.values]
+                if len(node.values) == 1:
+                    return node.values[0]
+            elif isinstance(node, ast.UnaryOp):
+                node.operand = simplify(node.operand)
+            return node
+
+        return simplify(expr)
 
     def __call__(self, *args):
         if len(args) != len(self.names):
@@ -211,6 +253,67 @@ class BooleanExpression(object):
 
         # No true terms found
         return False
+
+
+def simplify(expr):
+    expression = _ASTExpression(expr)
+    return synthesize(expression, *expression.propositions)
+
+
+class _ASTExpression(object):
+
+    def __init__(self, expr):
+        tree = ast.parse(expr)
+        if len(tree.body) != 1:
+            raise SyntaxError("Expression may only contain a single expression.")
+        expr_node = tree.body[0]
+        if not isinstance(expr_node, ast.Expr):
+            raise SyntaxError("Not an expression.")
+        self.node = expr_node.value
+        self.propositions = {}
+        self.propositions_mapping = {}
+        self.crawl_expression(self.node)
+        self.propositions = self.propositions.values()
+
+    def crawl_expression(self, node):
+        if isinstance(node, ast.BoolOp):
+            for subtree in node.values:
+                self.crawl_expression(subtree)
+        elif isinstance(node, ast.UnaryOp):
+            assert isinstance(node.op, ast.Not)
+            self.crawl_expression(node.operand)
+        else:
+            s = codegen.to_source(node)
+            if s not in self.propositions:
+                self.propositions_mapping[node] = node
+                self.propositions[s] = node
+            else:
+                self.propositions_mapping[node] = self.propositions[s]
+
+    def __call__(self, *args):
+        if len(args) != len(self.propositions):
+            raise ValueError("Wrong number of arguments.")
+        truthtable = dict([pair for pair in zip(self.propositions, args)])
+
+        boolops = {
+            ast.And: lambda a, b: a and b,
+            ast.Or: lambda a, b: a or b
+        }
+        def evaluate_node(node):
+            if isinstance(node, ast.BoolOp):
+                values = [evaluate_node(value) for value in node.values]
+                return functools.reduce(boolops[type(node.op)], values)
+            elif isinstance(node, ast.UnaryOp):
+                return not evaluate_node(node.operand)
+            else:
+                return truthtable[self.propositions_mapping[node]]
+
+        return evaluate_node(self.node)
+
+
+def main():
+    expr = ' '.join(sys.argv[1:])
+    print codegen.to_source(simplify(expr).ast())
 
 
 if __name__ == '__main__':

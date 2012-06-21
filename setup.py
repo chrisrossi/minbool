@@ -58,6 +58,8 @@ setup(name='minbool',
       tests_require = tests_require,
       test_suite="minbool.tests",
       entry_points = """\
+      [console_scripts]
+      simplify = minbool:main
       """
       )
 
