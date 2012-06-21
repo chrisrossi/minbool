@@ -8,20 +8,25 @@ import pprint
 def simplify(f, *names):
     N = len(names)
 
+    # Construct truth table
+    truthtable = {}
+    for implicant in range_implicants(N):
+        truthtable[implicant] = f(*implicant)
+
     # Find prime implicants
     prime_implicants = set()
 
     # Construct the first column
     column = [[] for _ in xrange(N+1)]
-    for i in xrange(2**N):
-        implicant = make_implicant(i, N)
-        if f(*implicant):
+    for implicant, truth in truthtable.items():
+        if truth in (True, None):  # include don't cares
             group = 0
             for member in implicant:
                 if member:
                     group += 1
             column[group].append(implicant)
 
+    # Iteratively find matches/prime implicants in successive columns
     done = False
     column_no = 1
     while not done:
@@ -55,9 +60,14 @@ def simplify(f, *names):
 
         column = next_column
 
-    print
     print 'Prime implicants'
     pprint.pprint(sorted(prime_implicants))
+    print
+
+
+def range_implicants(N):
+    for i in xrange(2**N):
+        yield make_implicant(i, N)
 
 
 def make_implicant(i, N):
@@ -85,13 +95,17 @@ def adjacent(imp1, imp2):
 
 
 if __name__ == '__main__':
-    truths = (4, 5, 6, 8, 9, 10, 13, 0, 7, 15)
+    truths = (4, 5, 6, 8, 9, 10, 13)
+    dontcare = (0, 7, 15)
 
     def f(*args):
         proposition = 0
         for arg in args:
             proposition <<= 1
             proposition += arg
-        return proposition in truths
+        if proposition in dontcare:
+            return None
+        else:
+            return proposition in truths
 
     simplify(f, 'A', 'B', 'C', 'D')
