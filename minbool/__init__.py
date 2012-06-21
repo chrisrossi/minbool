@@ -1,11 +1,26 @@
-import pprint
-
 #
 # Implementation of Quine McCluskey algorithm for simplifying boolean
 # expressions.
 #
+import ast
 
-def simplify(f, *names):
+def synthesize(f, *names):
+    """
+    Synthesizes a boolean expression from an arbitrary function.  The names
+    passed to this function are the names of the arguments passed to the
+    function.  The function must accept the same number of boolean arguments as
+    the number of names supplied and the function must return a boolean.
+
+    This function will construct a truth table by iterating over all possible
+    inputs to the function and recording the function's output.  The truth table
+    is then used to synthesize a matching, simplified boolean expression using
+    the Quine-McCluskey algorithm.
+
+    The return value is an instance of BooleanExpression.  Casting the return
+    value to string will yield a Python format boolean expression as a string.
+    Calling the return value with boolean arguments will return the boolean
+    result of the expression.
+    """
     N = len(names)
 
     # Construct truth table
@@ -28,13 +43,7 @@ def simplify(f, *names):
 
     # Iteratively find matches/prime implicants in successive columns
     done = False
-    column_no = 1
     while not done:
-        print "Column", column_no
-        column_no += 1
-        pprint.pprint(column)
-        print
-
         done = True
         next_column  = [[] for _ in xrange(N+1)]
         matches = [[False for _ in xrange(len(column[n]))] for n in xrange(N+1)]
@@ -53,16 +62,12 @@ def simplify(f, *names):
                         next_column[group].append(match)
                         done = False
 
-        for i in xrange(N):
+        for i in xrange(N+1):
             for j in xrange(len(matches[i])):
                 if not matches[i][j]:
                     prime_implicants.add(tuple(column[i][j]))
 
         column = next_column
-
-    print 'Prime implicants'
-    pprint.pprint(sorted(prime_implicants))
-    print
 
     # construct coverage chart
     minterm_coverage = {}
@@ -83,6 +88,10 @@ def simplify(f, *names):
     cand_implicants = set(prime_implicants)
     solution = []
     for minterm, covering_implicants in minterm_coverage.items():
+        if minterm not in uncovered_minterms:
+            # Might have gotten covered by an essential implicant found earlier
+            continue
+
         if len(covering_implicants) == 1:
             # covering implicant is essential
             implicant = covering_implicants[0]
@@ -90,14 +99,6 @@ def simplify(f, *names):
             cand_implicants.remove(implicant)
             covered_minterms = implicant_coverage[implicant]
             uncovered_minterms -= covered_minterms
-
-    print "Essential implicants"
-    pprint.pprint(solution)
-    print
-
-    print "Uncovered minterms"
-    pprint.pprint(uncovered_minterms)
-    print
 
     # Add enough non-essential implicants to cover the remaining uncovered
     # minterms
@@ -120,19 +121,15 @@ def simplify(f, *names):
         covered_minterms = implicant_coverage[leading_implicant]
         uncovered_minterms -= covered_minterms
 
-    print "Final solution"
-    pprint.pprint(solution)
-    print
-
     return BooleanExpression(names, solution)
 
 
 def range_minterms(N):
     for i in xrange(2**N):
-        yield make_implicant(i, N)
+        yield make_minterm(i, N)
 
 
-def make_implicant(i, N):
+def make_minterm(i, N):
     mask = 1
     implicant = []
     for _ in xrange(N):
@@ -172,6 +169,12 @@ class BooleanExpression(object):
         self.solution = solution
 
     def __str__(self):
+        solution = self.solution
+
+        # Special case--empty solution, always False
+        if not solution:
+            return 'False'
+
         names = self.names
         terms = []
         for implicant in self.solution:
@@ -183,7 +186,13 @@ class BooleanExpression(object):
                     term.append(name)
                 else:
                     term.append('not(%s)' % name)
+
+            # Special case--term is all don't cares, always True
+            if not term:
+                return 'True'
+
             terms.append('(%s)' % ' and '.join(term))
+
         return ' or '.join(terms)
 
     def __call__(self, *args):
@@ -205,8 +214,8 @@ class BooleanExpression(object):
 
 
 if __name__ == '__main__':
-    truths = (4, 5, 6, 8, 9, 10, 13)
-    dontcare = (0, 7, 15)
+    truths = (7,)
+    dontcare = (0, 1, 2, 3, 4, 5, 6)
 
     def f(*args):
         proposition = 0
@@ -218,13 +227,13 @@ if __name__ == '__main__':
         else:
             return proposition in truths
 
-    solution = simplify(f, 'A', 'B', 'C', 'D')
+    solution = synthesize(f, 'A', 'B', 'C')
     print str(solution)
 
-    for i in xrange(16):
+    for i in xrange(8):
         if i in dontcare:
             continue
-        args = make_implicant(i, 4)
+        args = make_minterm(i, 3)
         assert solution(*args) == f(*args)
 
 
