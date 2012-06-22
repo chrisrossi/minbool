@@ -9,6 +9,13 @@ import sys
 
 
 def simplify(expr):
+    """
+    Parses and simplifies an arbitrary Python boolean expression string.  The
+    `expr` string is parsed using Python's 'ast' module.  The return value is
+    an instance of BooleanExpression.  Casting the return value to string will
+    yield the simplified expression as a string.  Calling the 'ast' method on
+    the return value will return the ast for the simplified expression.
+    """
     expression = _ASTExpression(expr)
     return synthesize(expression, *expression.propositions)
 
@@ -132,16 +139,24 @@ def synthesize(f, *names):
         covered_minterms = implicant_coverage[leading_implicant]
         uncovered_minterms -= covered_minterms
 
-    return BooleanExpression(names, solution)
+    if isinstance(names[0], basestring):
+        return BooleanExpression(names, solution)
+    return ASTBooleanExpression(names, solution)
 
 
 class BooleanExpression(object):
+    _string = None
 
     def __init__(self, names, solution):
         self.names = names
         self.solution = solution
 
     def __str__(self):
+        if self._string is None:
+            self._string = self._makestring()
+        return self._string
+
+    def _makestring(self):
         solution = self.solution
 
         # Special case--empty solution, always False
@@ -169,7 +184,33 @@ class BooleanExpression(object):
 
         return ' or '.join(terms)
 
+    def __call__(self, *args):
+        if len(args) != len(self.names):
+            raise ValueError("Wrong number of arguments")
+
+        for implicant in self.solution:
+            for arg, truth in zip(args, implicant):
+                if truth is None:
+                    continue
+                elif bool(arg) != truth:
+                    break
+            else:
+                # This term is true so expression is true
+                return True
+
+        # No true terms found
+        return False
+
+
+class ASTBooleanExpression(BooleanExpression):
+    _ast = None
+
     def ast(self):
+        if self._ast is None:
+            self._ast = self._make_ast()
+        return self._ast
+
+    def _make_ast(self):
         solution = self.solution
 
         # Special case--empty solution, always False
@@ -207,22 +248,8 @@ class BooleanExpression(object):
 
         return simplify(expr)
 
-    def __call__(self, *args):
-        if len(args) != len(self.names):
-            raise ValueError("Wrong number of arguments")
-
-        for implicant in self.solution:
-            for arg, truth in zip(args, implicant):
-                if truth is None:
-                    continue
-                elif bool(arg) != truth:
-                    break
-            else:
-                # This term is true so expression is true
-                return True
-
-        # No true terms found
-        return False
+    def _makestring(self):
+        return codegen.to_source(self.ast())
 
 
 def _range_minterms(N):
@@ -316,7 +343,7 @@ class _ASTExpression(object):
 
 def main():
     expr = ' '.join(sys.argv[1:])
-    print codegen.to_source(simplify(expr).ast())
+    print str(simplify(expr))
 
 
 if __name__ == '__main__':
