@@ -4,7 +4,7 @@ import unittest
 class TestSynthesize(unittest.TestCase):
 
     def test_all_possible(self, N=3):
-        from minbool import range_minterms
+        from minbool import _range_minterms
         from minbool import synthesize
 
         def gen_functions():
@@ -32,7 +32,7 @@ class TestSynthesize(unittest.TestCase):
         for f in gen_functions():
             solution = synthesize(f, *names)
             assert str(solution)
-            for args in range_minterms(N):
+            for args in _range_minterms(N):
                 expected = f(*args)
                 if expected is None:
                     continue

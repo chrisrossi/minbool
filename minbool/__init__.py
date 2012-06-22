@@ -7,6 +7,12 @@ import codegen
 import functools
 import sys
 
+
+def simplify(expr):
+    expression = _ASTExpression(expr)
+    return synthesize(expression, *expression.propositions)
+
+
 def synthesize(f, *names):
     """
     Synthesizes a boolean expression from an arbitrary function.  The names
@@ -30,7 +36,7 @@ def synthesize(f, *names):
 
     # Construct truth table
     truthtable = {}
-    for minterm in range_minterms(N):
+    for minterm in _range_minterms(N):
         truthtable[minterm] = f(*minterm)
 
     # Find prime implicants
@@ -57,7 +63,7 @@ def synthesize(f, *names):
             next_group = column[n+1]
             for i, implicant in enumerate(this_group):
                 for j, candidate in enumerate(next_group):
-                    match = adjacent(implicant, candidate)
+                    match = _adjacent(implicant, candidate)
                     if match:
                         matches[n][i] = matches[n+1][j] = True
                         group = 0
@@ -85,7 +91,7 @@ def synthesize(f, *names):
         uncovered_minterms.add(minterm)
         minterm_coverage[minterm] = covering_implicants = []
         for implicant in prime_implicants:
-            if covers(implicant, minterm):
+            if _covers(implicant, minterm):
                 covering_implicants.append(implicant)
                 implicant_coverage[implicant].add(minterm)
 
@@ -127,44 +133,6 @@ def synthesize(f, *names):
         uncovered_minterms -= covered_minterms
 
     return BooleanExpression(names, solution)
-
-
-def range_minterms(N):
-    for i in xrange(2**N):
-        yield make_minterm(i, N)
-
-
-def make_minterm(i, N):
-    mask = 1
-    implicant = []
-    for _ in xrange(N):
-        implicant.insert(0, int(bool(i & mask)))
-        mask <<= 1
-    return tuple(implicant)
-
-
-def adjacent(imp1, imp2):
-    differences = 0
-    match = []
-    for m1, m2 in zip(imp1, imp2):
-        if m1 == m2:
-            match.append(m1)
-        elif differences:
-            return
-        else:
-            differences += 1
-            match.append(None)
-
-    return match
-
-
-def covers(implicant, minterm):
-    for i, m in zip(implicant, minterm):
-        if i is None:
-            continue
-        if i != m:
-            return False
-    return True
 
 
 class BooleanExpression(object):
@@ -257,9 +225,42 @@ class BooleanExpression(object):
         return False
 
 
-def simplify(expr):
-    expression = _ASTExpression(expr)
-    return synthesize(expression, *expression.propositions)
+def _range_minterms(N):
+    for i in xrange(2**N):
+        yield _make_minterm(i, N)
+
+
+def _make_minterm(i, N):
+    mask = 1
+    implicant = []
+    for _ in xrange(N):
+        implicant.insert(0, int(bool(i & mask)))
+        mask <<= 1
+    return tuple(implicant)
+
+
+def _adjacent(imp1, imp2):
+    differences = 0
+    match = []
+    for m1, m2 in zip(imp1, imp2):
+        if m1 == m2:
+            match.append(m1)
+        elif differences:
+            return
+        else:
+            differences += 1
+            match.append(None)
+
+    return match
+
+
+def _covers(implicant, minterm):
+    for i, m in zip(implicant, minterm):
+        if i is None:
+            continue
+        if i != m:
+            return False
+    return True
 
 
 class _ASTExpression(object):
@@ -334,5 +335,5 @@ if __name__ == '__main__':
     print str(solution)
 
     for i in xrange(2**N):
-        args = make_minterm(i, N)
+        args = _make_minterm(i, N)
         assert solution(*args) == f(*args)
