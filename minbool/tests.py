@@ -3,7 +3,7 @@ import unittest
 
 class TestSynthesize(unittest.TestCase):
 
-    def test_all_possible(self, N=4):
+    def test_all_possible(self, N=3):
         from minbool import range_minterms
         from minbool import synthesize
 

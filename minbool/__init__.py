@@ -12,7 +12,9 @@ def synthesize(f, *names):
     Synthesizes a boolean expression from an arbitrary function.  The names
     passed to this function are the names of the arguments passed to the
     function.  The function must accept the same number of boolean arguments as
-    the number of names supplied and the function must return a boolean.
+    the number of names supplied and the function must return a boolean.  The
+    function may also return None to indicate that we don't care about the
+    answer for a particular input.
 
     This function will construct a truth table by iterating over all possible
     inputs to the function and recording the function's output.  The truth table
@@ -317,26 +319,20 @@ def main():
 
 
 if __name__ == '__main__':
-    truths = (7,)
-    dontcare = (0, 1, 2, 3, 4, 5, 6)
+    N = 12
 
     def f(*args):
         proposition = 0
         for arg in args:
             proposition <<= 1
             proposition += arg
-        if proposition in dontcare:
-            return None
-        else:
-            return proposition in truths
 
-    solution = synthesize(f, 'A', 'B', 'C')
+        return proposition % 3 == 1
+
+    names = [chr(i) for i in xrange(ord('A'), ord('A') + N)]
+    solution = synthesize(f, *names)
     print str(solution)
 
-    for i in xrange(8):
-        if i in dontcare:
-            continue
-        args = make_minterm(i, 3)
+    for i in xrange(2**N):
+        args = make_minterm(i, N)
         assert solution(*args) == f(*args)
-
-
