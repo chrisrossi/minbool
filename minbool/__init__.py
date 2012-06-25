@@ -227,7 +227,7 @@ class ASTBooleanExpression(BooleanExpression):
                 elif truth:
                     term.append(proposition)
                 else:
-                    term.append(ast.UnaryOp(ast.Not, proposition))
+                    term.append(ast.UnaryOp(ast.Not(), proposition))
 
             # Special case--term is all don't cares, always True
             if not term:
@@ -321,8 +321,7 @@ class _ASTExpression(object):
                 self.propositions_mapping[node] = self.propositions[s]
 
     def __call__(self, *args):
-        if len(args) != len(self.propositions):
-            raise ValueError("Wrong number of arguments.")
+        assert len(args) == len(self.propositions), "Wronng number of arguments"
         truthtable = dict([pair for pair in zip(self.propositions, args)])
 
         boolops = {
@@ -341,26 +340,10 @@ class _ASTExpression(object):
         return evaluate_node(self.node)
 
 
-def main():
-    expr = ' '.join(sys.argv[1:])
-    print str(simplify(expr))
+def main(argv=sys.argv, out=sys.stdout):
+    expr = ' '.join(argv[1:])
+    print >> out, str(simplify(expr))
 
 
-if __name__ == '__main__':
-    N = 12
-
-    def f(*args):
-        proposition = 0
-        for arg in args:
-            proposition <<= 1
-            proposition += arg
-
-        return proposition % 3 == 1
-
-    names = [chr(i) for i in xrange(ord('A'), ord('A') + N)]
-    solution = synthesize(f, *names)
-    print str(solution)
-
-    for i in xrange(2**N):
-        args = _make_minterm(i, N)
-        assert solution(*args) == f(*args)
+if __name__ == '__main__': #pragma NO COVERAGE
+    main()

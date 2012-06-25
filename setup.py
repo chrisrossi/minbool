@@ -13,6 +13,7 @@
 ##############################################################################
 
 import os
+import sys
 
 from setuptools import setup, find_packages
 
@@ -29,6 +30,9 @@ install_requires=[
 tests_require = [
     ]
 
+if sys.version_info < (2, 7, 0, 0):
+    tests_require.append('unittest2')
+
 testing_extras = tests_require + ['nose', 'coverage']
 
 setup(name='minbool',
@@ -39,12 +43,6 @@ setup(name='minbool',
       classifiers=[
         "Intended Audience :: Developers",
         "Programming Language :: Python",
-        "Programming Language :: Python :: 2.6",
-        "Programming Language :: Python :: 2.7",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.2",
-        "Programming Language :: Python :: Implementation :: CPython",
-        "Programming Language :: Python :: Implementation :: PyPy",
         ],
       author="Chris Rossi",
       author_email="chris@archimedeanco.com",

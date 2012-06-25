@@ -1,4 +1,8 @@
-import unittest
+try:
+    import unittest2 as unittest
+    unittest # stfu pyflakes
+except ImportError:
+    import unittest
 
 
 class TestSynthesize(unittest.TestCase):
@@ -37,3 +41,41 @@ class TestSynthesize(unittest.TestCase):
                 if expected is None:
                     continue
                 self.assertEqual(expected, solution(*args))
+
+
+class TestSimplify(unittest.TestCase):
+
+    def call_fut(self, expr):
+        from minbool import simplify as fut
+        return fut(expr)
+
+    def test_it(self):
+        self.assertEqual(str(self.call_fut('A or B and A')), 'A')
+        self.assertEqual(str(self.call_fut('not(A or B and A)')), '(not A)')
+
+    def test_misuse_result(self):
+        result = self.call_fut('A or B')
+        with self.assertRaises(ValueError):
+            result(True)
+
+    def test_always_false(self):
+        self.assertEqual(str(self.call_fut('A and not A')), 'False')
+
+    def test_always_true(self):
+        self.assertEqual(str(self.call_fut('A or not A')), 'True')
+
+    def test_multiple_statements(self):
+        with self.assertRaises(SyntaxError):
+            self.call_fut('A; B')
+
+    def test_not_an_expression(self):
+        with self.assertRaises(SyntaxError):
+            self.call_fut('A = True')
+
+    def test_console_script(self):
+        from minbool import main
+        from StringIO import StringIO
+        output = StringIO()
+        main(argv=['simplify', 'A or B and A'], out=output)
+        self.assertEqual(output.getvalue(), 'A\n')
+
