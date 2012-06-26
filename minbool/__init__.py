@@ -63,7 +63,7 @@ def synthesize(f, *names):
     done = False
     while not done:
         done = True
-        next_column  = [[] for _ in xrange(N+1)]
+        next_column  = [set() for _ in xrange(N+1)]
         matches = [[False for _ in xrange(len(column[n]))] for n in xrange(N+1)]
         for n in xrange(N):
             this_group = column[n]
@@ -77,7 +77,7 @@ def synthesize(f, *names):
                         for member in match:
                             if member:
                                 group += 1
-                        next_column[group].append(match)
+                        next_column[group].add(match)
                         done = False
 
         for i in xrange(N+1):
@@ -85,7 +85,7 @@ def synthesize(f, *names):
                 if not matches[i][j]:
                     prime_implicants.add(tuple(column[i][j]))
 
-        column = next_column
+        column = [list(group) for group in next_column]
 
     # construct coverage chart
     minterm_coverage = {}
@@ -278,7 +278,7 @@ def _adjacent(imp1, imp2):
             differences += 1
             match.append(None)
 
-    return match
+    return tuple(match)
 
 
 def _covers(implicant, minterm):

@@ -79,3 +79,9 @@ class TestSimplify(unittest.TestCase):
         main(argv=['simplify', 'A or B and A'], out=output)
         self.assertEqual(output.getvalue(), 'A\n')
 
+    def test_edgecase(self):
+        # this input was causing performance to blow up
+        result = self.call_fut("A and B or A and C and not C or D and C or E "
+                      "and C and F or G and H and B")
+        self.assertEqual(str(result), '((A and B) or (B and G and H) or '
+                         '(C and D) or (C and E and F))')
